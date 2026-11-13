@@ -1,0 +1,44 @@
+[package]
+name = "prolink"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.79"
+description = "Pioneer Pro DJ Link protocol library with pluggable network adapters, usable with and without std"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/example/prolink"
+keywords = ["dj", "pioneer", "prodjlink", "no-std", "cdj"]
+categories = ["network-programming", "no-std", "multimedia"]
+readme = "README.md"
+
+[features]
+default = ["std"]
+std = ["alloc", "dep:socket2"]
+alloc = []
+# Exports `adapter::loopback::MockTransport` so downstream crates can test
+# their own code against a fake network.
+testing = ["alloc"]
+
+[dependencies]
+bitflags = { version = "2.6", default-features = false }
+libm = "0.2"
+# Only for the `std` adapter: binding 50000-50002 with SO_REUSEADDR/SO_REUSEPORT
+# so this can coexist with rekordbox or a second instance.
+socket2 = { version = "0.5", features = ["all"], optional = true }
+
+[dev-dependencies]
+
+[[example]]
+name = "monitor"
+required-features = ["std"]
+
+[[example]]
+name = "vcdj"
+required-features = ["std"]
+
+[[example]]
+name = "custom_adapter"
+required-features = ["std"]
+
+[[example]]
+name = "simulate"
+required-features = ["std"]

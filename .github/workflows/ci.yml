@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  # The test harness itself needs `std`, so tests always run with it enabled.
+  # That costs no coverage: the protocol code is identical in both builds, and
+  # the `no_std` job below is what proves the `no_std` build is real.
+  test:
+    name: Test (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "--all-features"
+          - "--features testing"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --lib ${{ matrix.features }}
+      - run: cargo test --doc ${{ matrix.features }}
+      - run: cargo run --example custom_adapter
+
+  # The check a `#![no_std]` attribute alone cannot give you: a `std::` path
+  # reaching in through a dependency only shows up on a target that has no std
+  # to reach for. Two targets, because a single one can hide portability bugs.
+  no_std:
+    name: Bare metal (${{ matrix.features }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "--no-default-features"
+          - "--no-default-features --features alloc"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf, riscv32imac-unknown-none-elf
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --lib ${{ matrix.features }} --target thumbv7em-none-eabihf
+      - run: cargo build --lib ${{ matrix.features }} --target riscv32imac-unknown-none-elf
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets --all-features
+      - run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.79.0
+      - run: cargo build --lib --all-features
